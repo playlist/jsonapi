@@ -18,7 +18,7 @@ type Query struct {
 		fields []string,
 		filters map[string][]string,
 		sorting [][]string) []interface{} // returns resource objects for a kind and a set of IDs
-	ResolveLink      func(link string, r *Response) ResourceLink                                       // returns a resource link for a requested link, provided with the in-progress response
+	ResolveLink      func(link string, r *Response) *ResourceLink                                      // returns a resource link for a requested link, provided with the in-progress response
 	ResolveLinkedIDs func(link string, resources map[string][]interface{}) (kind string, ids []string) // returns a set of IDs given the link and the available resources
 	kind             string
 	primaryIDs       []string
@@ -135,7 +135,7 @@ func (q *Query) Execute() (*Response, error) {
 
 	if len(q.includes) > 0 && q.ResolveLink != nil {
 		for _, v := range q.includes {
-			r.Links[v] = q.ResolveLink(v, r)
+			r.Links[v] = *q.ResolveLink(v, r)
 		}
 	}
 
