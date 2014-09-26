@@ -35,7 +35,11 @@ func (r *Response) MarshalJSON() ([]byte, error) {
 
 	if r.Resources != nil && len(r.Resources) != 0 {
 		if primary, ok := r.Resources[r.primaryKind]; ok {
-			res[r.primaryKind] = primary
+			if len(primary) == 1 {
+				res[r.primaryKind] = primary[0]
+			} else {
+				res[r.primaryKind] = primary
+			}
 			delete(r.Resources, r.primaryKind)
 		}
 
@@ -43,7 +47,11 @@ func (r *Response) MarshalJSON() ([]byte, error) {
 		l := make(map[string]interface{})
 		for k, v := range r.Resources {
 			hasLinked = true
-			l[k] = v
+			if len(v) == 1 {
+				l[k] = v[0]
+			} else {
+				l[k] = v
+			}
 		}
 		if hasLinked {
 			res["linked"] = l
