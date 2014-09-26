@@ -2,11 +2,11 @@ package jsonapi
 
 import "strings"
 
-func sortDirection(field string) string {
+func sortDirection(field string) (string, string) {
 	if field[0] == '-' && len(field) > 1 {
-		return "DESC"
+		return field[1:len(field)], "DESC"
 	} else {
-		return "ASC"
+		return field, "ASC"
 	}
 }
 
@@ -15,8 +15,7 @@ func processSortings(kind string, sortings string, dest map[string][][]string) {
 	dest[kind] = make([][]string, len(s))
 	for i, v := range s {
 		dest[kind][i] = make([]string, 2)
-		dest[kind][i][0] = v
-		dest[kind][i][1] = sortDirection(v)
+		dest[kind][i][0], dest[kind][i][1] = sortDirection(v)
 	}
 }
 
