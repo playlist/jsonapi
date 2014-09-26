@@ -9,13 +9,19 @@ var fieldsRegex = regexp.MustCompile(`^fields\[([^\]]+)\]$`)
 var sortRegex = regexp.MustCompile(`^sort\[([^\]]+)\]$`)
 
 type Query struct {
-	FetchIDs      func() ([]string, error)          // returns an array of IDs for the primary collection
-	DefaultFields func(kind string) []string        // (optional) returns the default fields to fetch for a kind
-	FilterAllowed func(filter string) bool          // (optional) returns true if the filter is a valid field
-	FetchResource func(id, kind string) interface{} // returns the resource object for a kind and an ID
-
-	kind       string
-	primaryIDs []string
+	FetchIDs       func() ([]string, error)   // returns an array of IDs for the primary collection
+	DefaultFields  func(kind string) []string // (optional) returns the default fields to fetch for a kind
+	FilterAllowed  func(filter string) bool   // (optional) returns true if the filter is a valid field
+	FetchResources func(
+		kind string,
+		ids []string,
+		fields []string,
+		filters map[string][]string,
+		sorting [][]string) []interface{} // returns resource objects for a kind and a set of IDs
+	ResolveLink      func(link string, r *Response) ResourceLink                                       // returns a resource link for a requested link, provided with the in-progress response
+	ResolveLinkedIDs func(link string, resources map[string][]interface{}) (kind string, ids []string) // returns a set of IDs given the link and the available resources
+	kind             string
+	primaryIDs       []string
 
 	includes []string
 	sortings map[string][][]string
@@ -118,4 +124,45 @@ func (q *Query) Parse(params map[string][]string) error {
 	}
 
 	return nil
+}
+
+func (q *Query) Execute() (*Response, error) {
+	if q.FetchResources == nil {
+		return nil, ErrMissingFetchResources
+	}
+
+	r := NewResponse(q.kind)
+
+	if len(q.includes) > 0 && q.ResolveLink != nil {
+		for _, v := range q.includes {
+			r.Links[v] = q.ResolveLink(v, r)
+		}
+	}
+
+	if len(q.primaryIDs) > 0 {
+		r.Resources[q.kind] = q.FetchResources(q.kind, q.primaryIDs, q.fields[q.kind], q.filters, q.sortings[q.kind])
+	}
+
+	if len(q.includes) > 0 && q.ResolveLinkedIDs != nil {
+		var links [][]string
+
+		dotRegex := regexp.MustCompile(`\.`)
+		for _, v := range q.includes {
+			count := len(dotRegex.FindAllString(v, -1))
+			if count+1 > len(links) {
+				links = append(links, make([]string, count-len(links)))
+			}
+
+			links[count] = append(links[count], v)
+		}
+
+		for _, l := range links {
+			for _, v := range l {
+				kind, ids := q.ResolveLinkedIDs(v, r.Resources)
+				r.Resources[kind] = append(r.Resources[kind], q.FetchResources(kind, ids, q.fields[kind], nil, q.sortings[kind]))
+			}
+		}
+	}
+
+	return r, nil
 }
