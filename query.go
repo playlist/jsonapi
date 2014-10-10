@@ -135,7 +135,10 @@ func (q *Query) Execute() (*Response, error) {
 
 	if len(q.includes) > 0 && q.ResolveLink != nil {
 		for _, v := range q.includes {
-			r.Links[v] = *q.ResolveLink(v, r)
+			l := q.ResolveLink(v, r)
+			if l != nil {
+				r.Links[v] = *q.ResolveLink(v, r)
+			}
 		}
 	}
 
